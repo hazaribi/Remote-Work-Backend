@@ -131,6 +131,25 @@ io.on('connection', (socket) => {
     });
   });
 
+  // New peer connection events
+  socket.on('peer_connected', (data) => {
+    const { workspaceId, peerId } = data;
+    socket.to(`workspace_${workspaceId}`).emit('peer_connected', {
+      userId: socket.userId,
+      peerId,
+      workspaceId
+    });
+  });
+
+  socket.on('user_calling', (data) => {
+    const { workspaceId, peerId } = data;
+    socket.to(`workspace_${workspaceId}`).emit('user_calling', {
+      userId: socket.userId,
+      peerId,
+      workspaceId
+    });
+  });
+
   socket.on('answer_call', (data) => {
     const { callerId, peerId, workspaceId } = data;
     socket.to(`workspace_${workspaceId}`).emit('call_answered', {
@@ -153,6 +172,16 @@ io.on('connection', (socket) => {
     socket.to(`workspace_${workspaceId}`).emit('call_ended', {
       endedBy: socket.userId,
       workspaceId
+    });
+  });
+
+  // ICE candidate exchange for WebRTC
+  socket.on('ice_candidate', (data) => {
+    const { workspaceId, candidate, targetPeerId } = data;
+    socket.to(`workspace_${workspaceId}`).emit('ice_candidate', {
+      candidate,
+      fromPeerId: socket.peerId,
+      targetPeerId
     });
   });
 
