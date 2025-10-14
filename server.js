@@ -121,29 +121,23 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Video call signaling
-  socket.on('call_user', (data) => {
-    const { targetUserId, workspaceId, peerId, callType } = data;
-    socket.to(`workspace_${workspaceId}`).emit('incoming_call', {
-      callerId: socket.userId,
-      peerId,
-      callType,
-      workspaceId
-    });
-  });
+  // Store active peers per workspace
+  if (!socket.activePeers) {
+    socket.activePeers = new Map();
+  }
 
-  // New peer connection events
-  socket.on('peer_connected', (data) => {
-    const { workspaceId, peerId } = data;
-    socket.to(`workspace_${workspaceId}`).emit('peer_connected', {
-      userId: socket.userId,
-      peerId,
-      workspaceId
-    });
-  });
-
+  // Video call signaling with duplicate prevention
   socket.on('user_calling', (data) => {
     const { workspaceId, peerId } = data;
+    
+    // Prevent duplicate calling events
+    const callKey = `${workspaceId}_${socket.userId}`;
+    if (socket.lastCallTime && Date.now() - socket.lastCallTime < 2000) {
+      console.log('Ignoring duplicate call event');
+      return;
+    }
+    socket.lastCallTime = Date.now();
+    
     socket.to(`workspace_${workspaceId}`).emit('user_calling', {
       userId: socket.userId,
       peerId,
@@ -151,9 +145,13 @@ io.on('connection', (socket) => {
     });
   });
 
-  // Multi-user video call events
+  // Multi-user video call events with state tracking
   socket.on('peer_joined', (data) => {
     const { workspaceId, peerId } = data;
+    
+    // Track active peer
+    socket.activePeers.set(workspaceId, peerId);
+    
     socket.to(`workspace_${workspaceId}`).emit('peer_joined', {
       userId: socket.userId,
       peerId,
@@ -163,6 +161,10 @@ io.on('connection', (socket) => {
 
   socket.on('peer_left', (data) => {
     const { workspaceId, peerId } = data;
+    
+    // Remove from active peers
+    socket.activePeers.delete(workspaceId);
+    
     socket.to(`workspace_${workspaceId}`).emit('peer_left', {
       userId: socket.userId,
       peerId,
@@ -231,6 +233,19 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     console.log(`❌ User ${socket.userId} disconnected`);
+    
+    // Clean up active peers and notify workspaces
+    if (socket.activePeers) {
+      socket.activePeers.forEach((peerId, workspaceId) => {
+        socket.to(`workspace_${workspaceId}`).emit('peer_left', {
+          userId: socket.userId,
+          peerId,
+          workspaceId
+        });
+      });
+      socket.activePeers.clear();
+    }
+    
     // Update presence to offline
     socket.broadcast.emit('presence_update', { userId: socket.userId, status: 'offline' });
   });
