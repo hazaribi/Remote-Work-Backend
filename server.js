@@ -71,6 +71,7 @@ app.use('/api/upload', require('./routes/upload'));
 app.use('/api/profile', require('./routes/profile'));
 app.use('/api/presence', require('./routes/presence'));
 app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/invite', require('./routes/invite'));
 
 // Socket authentication middleware
 io.use(async (socket, next) => {
@@ -150,6 +151,25 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Multi-user video call events
+  socket.on('peer_joined', (data) => {
+    const { workspaceId, peerId } = data;
+    socket.to(`workspace_${workspaceId}`).emit('peer_joined', {
+      userId: socket.userId,
+      peerId,
+      workspaceId
+    });
+  });
+
+  socket.on('peer_left', (data) => {
+    const { workspaceId, peerId } = data;
+    socket.to(`workspace_${workspaceId}`).emit('peer_left', {
+      userId: socket.userId,
+      peerId,
+      workspaceId
+    });
+  });
+
   socket.on('answer_call', (data) => {
     const { callerId, peerId, workspaceId } = data;
     socket.to(`workspace_${workspaceId}`).emit('call_answered', {
@@ -173,6 +193,10 @@ io.on('connection', (socket) => {
       endedBy: socket.userId,
       workspaceId
     });
+  });
+
+  socket.on('call_ended', (data) => {
+    socket.to(`workspace_${workspaceId}`).emit('call_ended', data);
   });
 
   // ICE candidate exchange for WebRTC

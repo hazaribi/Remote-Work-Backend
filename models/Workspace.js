@@ -66,6 +66,32 @@ class Workspace {
 
     return !error && data;
   }
+
+  static async createInvite(workspaceId, code, expiresAt) {
+    const { data, error } = await supabase
+      .from('workspace_invites')
+      .insert({
+        workspace_id: workspaceId,
+        invite_code: code,
+        expires_at: expiresAt.toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  static async getInvite(code) {
+    const { data, error } = await supabase
+      .from('workspace_invites')
+      .select('*')
+      .eq('invite_code', code)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+    return data;
+  }
 }
 
 module.exports = Workspace;
