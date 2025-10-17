@@ -213,8 +213,8 @@ io.on('connection', (socket) => {
 
   // Whiteboard events
   socket.on('whiteboard_draw', (data) => {
-    const { workspaceId, line } = data;
-    socket.to(`workspace_${workspaceId}`).emit('whiteboard_draw', { line });
+    const { workspaceId, action, data: drawData } = data;
+    socket.to(`workspace_${workspaceId}`).emit('whiteboard_draw', { action, data: drawData });
   });
 
   socket.on('whiteboard_clear', (data) => {
